@@ -1,8 +1,6 @@
 # Tarımda Akıllı Gübreleme ve Sulama için Derin Q-Ağı Tabanlı Yaklaşım
 
 > **Yüksek Lisans — Derin Pekiştirmeli Öğrenme Dersi Proje Ödevi**  
-> Metehan Sözenli — Bursa Teknik Üniversitesi, Bilgisayar Mühendisliği  
-> Danışman: Doç. Dr. Kubilay Demir  
 > Tabular Q-Learning yaklaşımının Deep Q-Network (DQN) ve gerçek veri kalibrasyonu ile genişletilmesi
 
 ---
