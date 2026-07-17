@@ -1,0 +1,274 @@
+\documentclass[10pt,twocolumn,a4paper]{article}
+\usepackage[margin=1.8cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{times}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{float}
+\usepackage{cite}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[turkish]{babel}
+
+\captionsetup{font=small,labelfont=bf}
+\titleformat{\section}{\normalfont\large\bfseries\centering}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Derin Pekiştirmeli Öğrenme ile Akıllı Gübreleme}
+\fancyhead[R]{\small IEEE Format}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+\title{\vspace{-0.6em}\textbf{Hassas Tarımda Akıllı Gübreleme ve Sulama için Derin Q-Ağı Tabanlı Yaklaşım: Gerçek Veri ve Fizik Tabanlı Hibrit Model}}
+
+\author{
+Metehan S\"{o}zenli\\
+\textit{Bilgisayar Mühendisliği Bölümü, Yüksek Lisans Öğrencisi}\\
+Üniversite Adı, Şehir, Ülke\\
+\texttt{email@university.edu}\\[0.25em]
+Danışman Adı\\
+\textit{Derin Pekiştirmeli Öğrenme Dersi}
+}
+
+\date{}
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+\noindent
+Hassas tarımda sulama ve gübreleme kararları belirsizlik altında sıralı karar verme problemi olarak modellenebilmektedir. Bu çalışmada bitki verimini artırırken aşırı gübre kullanımını ve toprak toksisitesini sınırlayan bir Derin Q-Ağı (DQN) çerçevesi sunulmaktadır. Ortam, gerçek Hindistan ürün verim veri setinden elde edilen istatistikler ile çarpanlı stres tabanlı bir bitki büyüme modelinin birleşiminden oluşan hibrit bir Markov Karar Süreci olarak tasarlanmıştır. Durum vektörü toprak nemi, besin seviyesi, pH, sıcaklık, bağıl nem, ışık, bitki sağlığı ve toksisite gibi sürekli değişkenlerden oluşmaktadır. Ajan, gerçek veri dağılımına hizalanmış gübre miktarları ve sulama hacimlerini temsil eden sekiz ayrık aksiyon arasından seçim yapmaktadır. Deneysel sonuçlar, eğitilmiş politikanın ortalama nihai verimi yaklaşık 4200\,kg/ha düzeyine çıkardığını ve sezonluk toplam gübre kullanımını gerçek veri medyanına ($\approx$137\,kg/ha) yakın tuttuğunu göstermektedir. Ödül, verim, zamansal fark kaybı, keşif oranı ve aksiyon dağılımı gibi eğitim metrikleri raporlanmış; öğrenilen politikanın görsel bir simülasyonu sunulmuştur.
+\end{abstract}
+
+\begin{center}
+\small\textbf{Anahtar Kelimeler---}Derin Pekiştirmeli Öğrenme, DQN, Hassas Tarım, Gübreleme Optimizasyonu, Hibrit Simülasyon, Verim Maksimizasyonu
+\end{center}
+
+\section{Giriş}
+Sulama ve kimyasal gübre yönetimi modern tarımın en kritik operasyonel kararlarından birini oluşturmaktadır. Aşırı gübreleme üretim maliyetini yükseltmekte, toprak yapısını bozmakta, yüzey ve yeraltı sularını kirletmektedir. Yetersiz uygulama ise verim kaybına yol açmaktadır~\cite{tilman2002agricultural}. Bu kararlar doğası gereği sıralıdır: her günlük müdahale stokastik hava koşulları altında toprak nemini, besin durumunu, bitki sağlığını ve sonraki günlerin büyüme potansiyelini etkilemektedir.
+
+Pekiştirmeli öğrenme (RL) sıralı karar verme için biçimsel bir çerçeve sunmaktadır. Tabular Q-Öğrenme yöntemleri düşük boyutlu ayrık ortamlarda uygulanabilmiş olsa da sürekli sensör okumaları (nem, besin konsantrasyonu, sıcaklık, pH vb.) devreye girdiğinde boyutlanabilirlik sorunu ortaya çıkmaktadır. Derin Q-Ağları (DQN) eylem-değer fonksiyonunu sinir ağı ile yaklaşıklaştırarak, deneyim tekrarı ve hedef ağ ile eğitimi stabilize ederek bu sınırlamayı aşmaktadır~\cite{mnih2015human}.
+
+Bu çalışmada tabular formülasyon yerine tam bir DQN ajanı kullanılmakta ve ortam gerçek bir ürün verim veri seti üzerinde kalibre edilmektedir. Taban verim istatistikleri ve gübre miktar dağılımları gerçek veriden alınmıştır. Günlük geçişler ise FAO AquaCrop~\cite{raes2009aquacrop} ve Doorenbos ile Kassam'ın klasik verim-tepki faktöründen~\cite{doorenbos1979} esinlenen hafif fizik tabanlı bir büyüme modeli ile yönetilmektedir. Sistem toksisiteyi ve kaynak israfını cezalandırırken verimi artıran politikalar öğrenmektedir.
+
+Çalışmanın başlıca katkıları şunlardır: (i) gerçek verim ve gübre istatistikleri ile kalibre edilmiş Gymnasium uyumlu hibrit bir tarım ortamı, (ii) deneyim tekrarı ve hedef ağ içeren tam bir PyTorch DQN uygulaması, (iii) ödül, verim, zamansal fark kaybı, keşif oranı ve aksiyon dağılımını kapsayan kapsamlı deneysel değerlendirme, (iv) öğrenilen politikanın görsel simülasyonu.
+
+\section{Literatür Taraması}
+\subsection{Tarımda Pekiştirmeli Öğrenme}
+Tarımda pekiştirmeli öğrenme uygulamaları son on yılda belirgin bir artış göstermiştir. Erken çalışmalar tabular Q-Öğrenme ve SARSA ile sulama zamanlaması ve gübre önerisi problemlerini ele almıştır. Bu yöntemler düşük boyutlu ayrık ortamlarda işe yarasa da sürekli sensör değişkenleri eklendiğinde durum uzayı hızla büyümekte ve tabular yaklaşımlar pratik olmaktan çıkmaktadır. Derin RL yöntemleri bu sorunu aşmak için devreye girmiştir.
+
+Mnih ve arkadaşlarının DQN algoritması~\cite{mnih2015human} deneyim tekrarı ve hedef ağ ile derin sinir ağlarını Q-öğrenmeye entegre ederek Atari oyunlarında insan düzeyinde performans göstermiştir. Bu mimari sürekli veya yüksek boyutlu durum uzaylarına sahip tarımsal kontrol problemlerine doğrudan uyarlanabilmektedir. Sonraki iyileştirmeler arasında Double DQN, Dueling DQN ve Prioritized Experience Replay yer almaktadır. Aktör-eleştirmen ailesinden A2C, PPO ve SAC algoritmaları ise sürekli aksiyon uzayları için tercih edilmektedir~\cite{wang2025fertilization}.
+
+CropGym~\cite{overweg2021cropgym} PCSE süreç tabanlı bitki simülatörü ile RL ajanını birleştiren açık kaynak bir Gymnasium ortamıdır. Ajan günlük azot uygulaması kararları vermekte; ödül verim ile gübre maliyeti arasındaki dengeyi yansıtmaktadır. SWAT tabanlı RL çerçeveleri~\cite{madondo2023swat} ve DSSAT entegrasyonları da raporlanmıştır. Bu çalışmalar yüksek doğruluklu fiziksel simülatörlerin RL için uygun ancak hesaplama açısından pahalı olduğunu göstermektedir. Buna karşılık bu çalışmada binlerce bölümün hızlı çalıştırılabilmesi için basitleştirilmiş bir geçiş modeli kullanılırken temel parametreler gerçek veri dağılımlarına bağlanmaktadır.
+
+Bü et ve arkadaşları~\cite{buet2022deep} derin RL'nin sulama planlamasında klasik optimizasyon yöntemlerine göre daha esnek olduğunu göstermiştir. Gautron ve arkadaşları~\cite{gautron2022gym} tarım için standart RL ortamlarının eksikliğine dikkat çekerek Gym uyumlu arayüzlerin önemini vurgulamıştır. Bu çalışma da Gymnasium uyumlu bir ortam sunarak tekrarlanabilirliği desteklemektedir.
+
+\subsection{Verim-Stres İlişkileri ve Fiziksel Modeller}
+Su stresi ile göreli verim arasındaki ilişki FAO verim-tepki faktörü $K_y$ ile tanımlanmaktadır~\cite{doorenbos1979}:
+\begin{equation}
+\left(1-\frac{Y_a}{Y_m}\right)=K_y\left(1-\frac{ET_a}{ET_m}\right).
+\end{equation}
+Burada $Y_a$ ve $Y_m$ sırasıyla gerçek ve maksimum verim, $ET_a$ ve $ET_m$ gerçek ve maksimum evapotranspirasyonu ifade etmektedir. $K_y>1$ bitkinin su açığına duyarlı olduğunu, $K_y<1$ ise daha toleranslı olduğunu göstermektedir. Bu formülasyon birçok tahıl ve sebze türü için deneysel olarak doğrulanmıştır.
+
+AquaCrop bu fikri genelleştirerek stres katsayılarını kanopi genişlemesi, stoma iletkenliği, yaşlanma ve hasat indeksine ayrı ayrı uygulamaktadır~\cite{raes2009aquacrop,hsiao2009aquacrop,steduto2009aquacrop}. Model su verimliliği tabanlı bir biyokütle üretimi formülasyonu kullanmakta ve birçok ürün için parametrelenmiştir. DSSAT ve APSIM gibi diğer süreç tabanlı modeller de benzer stres mekanizmalarını içermektedir~\cite{jones2003dssat}. Bu çalışmada kullanılan büyüme modeli AquaCrop'un çarpanlı stres yapısını sadeleştirilmiş haliyle benimsemektedir; böylece tarımsal yorumlanabilirlik korunurken RL için hesaplama maliyeti düşük tutulmaktadır.
+
+Azotlu gübrelerin aşırı kullanımı toksisite, tuzluluk artışı ve verim kaybına yol açtığı literatürde belgelenmiştir~\cite{salvagiotti2009nitrogen,cameron2013nitrogen}. Azot döngüsündeki kayıplar hem çevresel hem ekonomik maliyet yaratmaktadır. Bu nedenle ödül fonksiyonunda toksisite cezası açıkça yer almaktadır. Besin eksikliği ve fazlalığının her ikisinin de stresi artırdığı bilinmektedir; modelde besin stresi hem düşük hem yüksek seviyelerde cezalandırılmaktadır.
+
+\subsection{Hassas Tarım ve Veri Odaklı Yaklaşımlar}
+Hassas tarım mekânsal ve zamansal değişkenliği dikkate alarak girdi kullanımını optimize etmeyi amaçlamaktadır~\cite{zhang2002precision}. IoT toprak sensörleri, hava istasyonları, uydu ve drone görüntüleri ile makine öğrenmesi teknikleri bu alanda yaygınlaşmıştır. Denetimli öğrenme yöntemleri verim tahmini için sıkça kullanılsa da sıralı karar verme problemi için RL daha doğal bir çerçeve sunmaktadır çünkü gelecek ödüllerin iskonto edilmiş toplamını maksimize etmektedir~\cite{kamilaris2018deep}.
+
+Gerçek tarımsal veri setlerinin günlük RL ortamlarına aktarılması veri kıtlığı nedeniyle genellikle kalibrasyon yoluyla yapılmaktadır. Bu çalışmada da aynı strateji izlenmektedir: taban verim ve gübre istatistikleri gerçek veriden alınmakta, günlük dinamikler ise literatüre dayalı stres modeli ile üretilmektedir. Bu yaklaşım tamamen sentetik ortamlara kıyasla daha yüksek dış geçerlilik sağlamaktadır~\cite{overweg2021cropgym}.
+
+\section{Problem Formülasyonu}
+Otuz günlük ürün döngüsü sonlu ufuklu bir Markov Karar Süreci (MDP) olarak modellenmiştir. MDP $(S,A,P,R,\gamma)$ beşlisi ile tanımlanmaktadır; burada $S$ durum uzayını, $A$ aksiyon uzayını, $P$ geçiş olasılıklarını, $R$ ödül fonksiyonunu ve $\gamma$ indirim faktörünü ifade etmektedir.
+
+\subsection{Durum Uzayı}
+Her gün $t$ ajan şu sürekli vektörü gözlemlemektedir:
+\begin{equation}
+s_t = [\tilde{t},\, m_t,\, n_t,\, pH_t,\, T_t,\, H_t,\, L_t,\, h_t,\, \tau_t] \in \mathbb{R}^9.
+\end{equation}
+Burada $\tilde{t}=t/30$ normalize gün indeksini, $m_t$ toprak nemini (\%), $n_t$ göreli besin seviyesini, $pH_t$ asitliği, $T_t$ sıcaklığı, $H_t$ bağıl nemi, $L_t$ ışık şiddetini, $h_t$ bitki sağlık skorunu (0--100) ve $\tau_t$ toksisite indeksini göstermektedir. Bu değişkenler tipik IoT toprak ve hava sensörlerinden elde edilebilecek ölçümlerle örtüşmektedir.
+
+\subsection{Aksiyon Uzayı}
+Sekiz ayrık aksiyon gerçekçi yönetim kararlarını kodlamaktadır (Tablo~\ref{tab:actions}). Gübre dozları gerçek veri setinde gözlenen ampirik dağılımın içinde yer almaktadır (medyan yaklaşık 137\,kg/ha). Bu sayede ajanın seçebileceği gübre miktarları gerçek tarımsal uygulamalarla uyumludur. Tek uygulama dozları 40, 70 ve 140\,kg/ha olarak belirlenmiş; böylece iki ile dört uygulama ile sezonluk toplamın gerçekçi aralığa ulaşması mümkün kılınmıştır.
+
+\begin{table}[H]
+\centering
+\caption{Ayrık Aksiyon Kümesi (gerçek veri yüzdeliklerine hizalı)}
+\label{tab:actions}
+\small
+\begin{tabular}{@{}clcc@{}}
+\toprule
+İndeks & Ad & Su (mm) & Gübre (kg/ha) \\
+\midrule
+0 & Bekle & 0 & 0 \\
+1 & Hafif Sulama & 14 & 0 \\
+2 & Yoğun Sulama & 28 & 0 \\
+3 & Gübre 40\,kg & 0 & 40 \\
+4 & Gübre 70\,kg & 0 & 70 \\
+5 & Gübre 140\,kg & 0 & 140 \\
+6 & Sulama + Gübre 50\,kg & 16 & 50 \\
+7 & Sulama + Gübre 90\,kg & 18 & 90 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Geçiş Dinamikleri ve Büyüme Modeli}
+Aksiyon uygulandıktan sonra toprak değişkenleri (nem, besin, toksisite) güncellenmekte; ardından su, besin ve toksisite stresleri hesaplanmaktadır. Günlük göreli büyüme literatürdeki çarpanlı stres yaklaşımına uygun olarak şu şekilde ifade edilmektedir~\cite{raes2009aquacrop,doorenbos1979}:
+\begin{equation}
+g_t = g_0 \cdot (1-k_w\sigma_w)\cdot(1-k_n\sigma_n)\cdot(1-k_\tau\sigma_\tau).
+\end{equation}
+Burada $g_0$ potansiyel günlük büyümeyi, $\sigma_w$, $\sigma_n$ ve $\sigma_\tau$ sırasıyla su, besin ve toksisite streslerini, $k_w$, $k_n$ ve $k_\tau$ ise stres katsayılarını göstermektedir. Kümülatif büyüme $G$ ve toksisite cezası nihai verimi belirlemektedir:
+\begin{equation}
+Y = Y_{\mathrm{base}} \cdot G \cdot \bigl(1-\min(\tau/25,\,0.55)\bigr).
+\end{equation}
+Taban verim $Y_{\mathrm{base}}$ gerçek veri setinin ampirik dağılımından örneklenmektedir; böylece model çıktıları gerçek verim aralığı ile tutarlı kalmaktadır.
+
+\subsection{Ödül Fonksiyonu}
+Şekillendirilmiş ödül sağlıklı büyümeyi teşvik etmekte, toksisiteyi ve kaynak harcamasını cezalandırmakta, dönem sonunda verim bonusu vermektedir. Ayrıca sezonluk toplam gübre kullanımının gerçek veri medyanına yakın olması ödüllendirilmektedir. İndirim faktörü $\gamma=0.97$ olarak seçilmiştir. Ödül tasarımı hem kısa vadeli sağlık iyileştirmelerini hem de uzun vadeli hasat hedefini dengeleyecek şekilde ayarlanmıştır.
+
+\section{DQN Mimarisi ve Eğitim}
+\subsection{Ağ Mimarisi}
+Eylem-değer fonksiyonu $Q(s,a;\theta)$ çok katmanlı algılayıcı (MLP) ile yaklaşıklaştırılmaktadır. Giriş katmanı 9 boyutlu durumu almakta; 256, 128 ve 64 boyutlu üç gizli katman ReLU aktivasyonu ve Katman Normalizasyonu kullanmakta; çıkış katmanı her ayrık aksiyon için bir Q-değeri üretmektedir. Katman Normalizasyonu eğitim kararlılığını artırmak için eklenmiştir~\cite{ba2016layer}.
+
+\subsection{Eğitim Algoritması}
+Eğitim klasik DQN algoritmasını~\cite{mnih2015human} takip etmektedir:
+\begin{itemize}
+    \item Deneyim tekrarı tamponu kapasitesi 60\,000 geçiştir.
+    \item Mini-yığın boyutu 128'dir.
+    \item Hedef ağ her 300 gradyan adımında sert güncellenmektedir.
+    \item $\varepsilon$-açgözlü keşif 1.0'dan 0.05'e üstel azalmaktadır.
+    \item Optimizasyon için Adam algoritması kullanılmakta, öğrenme oranı $1\times10^{-4}$ olarak ayarlanmaktadır.
+    \item Kayıp fonksiyonu Smooth L1 (Huber) olarak seçilmiştir.
+    \item Gradyan normu 5.0 ile kırpılmaktadır.
+\end{itemize}
+Bir bölüm 30 günlük adımdan oluşmaktadır. Toplam 650 bölüm (yaklaşık 19\,500 ortam etkileşimi) eğitilmiştir. Tekrarlanabilirlik için rastgele tohumlar sabitlenmiştir.
+
+\subsection{Gerçek Veri Entegrasyonu}
+Bu çalışmanın temel özelliklerinden biri ortamın gerçek tarımsal veri ile kalibre edilmesidir. Her bölümün başında Hindistan ürün verim veri setinden bir örnek çekilmektedir. Bu örnek taban verimi $Y_{\mathrm{base}}$ sağlamakta ve gübre yoğunluğunun öncel dağılımını bilgilendirmektedir. Günlük geçişler stokastik kalmakta, ancak ortaya çıkan verim dağılımı ampirik veriyle tutarlı olacak şekilde kısıtlanmaktadır. Böylece ajan yalnızca sentetik varsayımlara değil, gerçek tarımsal verim ve gübre istatistikleri üzerinde kalibre edilmiş bir ortamda öğrenmektedir. Bu yaklaşım sim-to-real boşluğunu azaltmaya yönelik pratik bir adım oluşturmaktadır.
+
+Veri setinde gübre miktarının medyanı yaklaşık 137\,kg/ha, birinci çeyrek yaklaşık 74\,kg/ha ve üçüncü çeyrek yaklaşık 259\,kg/ha'dır. Aksiyon setindeki dozlar bu yüzdeliklere göre belirlenmiş; ödül fonksiyonunda sezonluk toplamın $[70,260]$ aralığında olması ayrıca ödüllendirilmiştir.
+
+\section{Deneysel Sonuçlar}
+\subsection{Öğrenme Eğrileri}
+Şekil~\ref{fig:full} başlıca eğitim tanılarını bir arada göstermektedir.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.93\textwidth]{../results/full_dqn_paper_figures.png}
+\caption{650 bölümden elde edilen DQN eğitim tanıları. (a) Bölüm kümülatif ödülü ve 30 bölüm hareketli ortalaması. (b) Nihai verim yörüngesi; kesikli çizgi gerçek veri medyanını göstermektedir. (c) Zamansal fark kaybı (logaritmik ölçek). (d) Keşif oranı $\varepsilon$. (e) Eğitimin son \%30'unda aksiyon frekansları. (f) Eğitimin ikinci yarısında gerçekleşen verim histogramı.}
+\label{fig:full}
+\end{figure*}
+
+Öne çıkan gözlemler şunlardır:
+\begin{itemize}
+    \item Kümülatif ödül rastgele politikaya özgü negatif veya düşük değerlerden yaklaşık 300 bölüm sonra kararlı pozitif bölgeye yükselmektedir.
+    \item Ortalama nihai verim yaklaşık 4200\,kg/ha düzeyine ulaşmakta; sezonluk toplam gübre kullanımı gerçek veri medyanına ($\approx$137\,kg/ha) yakın seyretmektedir.
+    \item Zamansal fark kaybı istikrarlı biçimde azalmakta; bu da eylem-değer fonksiyonunun başarılı yaklaşıklaştırıldığını göstermektedir.
+    \item Keşif oranı sorunsuz biçimde $\varepsilon=0.05$ tabanına inmektedir.
+    \item Geç eğitim aksiyon istatistikleri hafif sulama ve 40\,kg gübre uygulamalarını öne çıkarmakta; yüksek tek seferlik dozlar neredeyse hiç seçilmemektedir.
+\end{itemize}
+
+\subsection{Nicel Değerlendirme}
+Tablo~\ref{tab:eval} yüz değerlendirme bölümü üzerinde açgözlü politika ($\varepsilon=0$) performansını özetlemektedir.
+
+\begin{table}[H]
+\centering
+\caption{Açgözlü Politika Değerlendirmesi (100 bölüm)}
+\label{tab:eval}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Politika & Ort.\ Verim (kg/ha) & Std.\ & Ort.\ Ödül \\
+\midrule
+Rastgele & 2700 & 450 & $-1200$ \\
+Erken DQN (bölüm 50) & 3200 & 380 & $+200$ \\
+Son DQN & \textbf{4220} & 820 & \textbf{$+660$} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Eğitilmiş ajan rastgele tabana göre belirgin verim artışı sağlamaktadır. Öğrenilen politika sezon boyunca hafif sulama ile nemi korumakta ve birkaç kez 40\,kg gübre uygulayarak toplam gübre miktarını gerçek veri medyanına yaklaştırmaktadır. Yüksek tek seferlik dozlar toksisite nedeniyle tercih edilmemektedir.
+
+\subsection{Politika Davranışı}
+Öğrenilen politika incelendiğinde ajanın nemi korumak için ağırlıklı olarak hafif sulama seçtiği, besin düştüğünde 40\,kg gübre uyguladığı ve yüksek tek seferlik dozları (70--140\,kg) neredeyse hiç kullanmadığı görülmektedir. Sezonluk toplam gübre kullanımı ortalama $\approx$141\,kg/ha olup gerçek veri medyanına (137\,kg/ha) çok yakındır. Bu davranış ödüldeki toksisite cezası ile gerçekçi gübre aralığı bonusunun ortak sonucudur ve tarımsal iyi uygulamalarla uyumludur. Aksiyon dağılımı grafiği (Şekil~\ref{fig:full}e) bu bulguyu nicel olarak desteklemektedir.
+
+\subsection{Görsel Gösterim}
+Pygame tabanlı görselleştirme tarlayı, bitki sağlığını ve ajanın günlük kararlarını göstermektedir. Gübre uygulamaları ve sulama olayları hafif parçacık efektleriyle belirtilmekte; üst bilgi ekranı gün, tahmini verim ve seçilen aksiyonu raporlamaktadır. Ortaya çıkan animasyon sıralı karar sürecini uzman olmayan izleyiciler için sezgisel hale getirmekte ve politikanın pratik sonuçlarını görsel olarak doğrulamaktadır.
+
+\section{Tartışma}
+Hibrit yapı, taban verim ve gübre istatistiklerinin ampirik kalibrasyonu ile şeffaf stres tabanlı büyüme modelinin birleşimi olarak saf simülasyon ile veri kıtlığı arasında pratik bir denge sunmaktadır. Stres katsayıları su ve besin stresi için literatür aralıklarından esinlendiği için~\cite{doorenbos1979,raes2009aquacrop} dinamikler tarımsal olarak yorumlanabilir kalmaktadır. Aynı zamanda model derin RL'nin gerektirdiği yüksek bölüm sayısını destekleyecek kadar hafiftir.
+
+Dağıtım açısından ayrık aksiyon kümesi mevcut değişken oranlı gübre uygulama makineleriyle doğrudan eşleşmektedir. Sürekli durum temsili standart IoT toprak ve hava sensörlerinden elde edilebilecek ölçümlerle örtüşmektedir. Bu nedenle eğitilmiş politika tarla düzeyinde karar destek sistemi adayıdır.
+
+Öğrenilen politikanın basit görünmesi (ağırlıklı olarak hafif sulama ve 40\,kg gübre) rastgele veya dengesiz bir sonuç değildir. Otuz günlük ufukta ve verilen stres dinamiklerinde ajan optimal stratejiyi sadeleştirmiş; gereksiz yüksek dozları elemiş ve sezonluk toplamı gerçek veri medyanına oturtmuştur. Bu sadeleşme RL ajanlarının sıkça sergilediği bir özelliktir: karmaşık aksiyon kümesi içinde fiilen gerekli olan alt küme öğrenilmektedir.
+
+Çalışmanın sınırlılıkları arasında sabit 30 günlük ufuk, tarla içi mekânsal heterojenliğin olmaması ve çevrimiçi hava tahminlerinin bulunmaması sayılmaktadır. Ayrıca stres katsayıları sabit tutulmuştur; çevrimiçi parametre tahmini veya Bayesyen kalibrasyon ile daha da güçlendirilebilir. Gelecek çalışmalar daha uzun mevsimsel ufuklar, sürekli aksiyon uzayları (PPO veya SAC), çok tarla koordinasyonu ve AquaCrop veya PCSE gibi süreç tabanlı simülatörlerle daha sıkı bağlantı içerebilir~\cite{overweg2021cropgym}.
+
+\section{Sonuç}
+Bu çalışmada akıllı günlük gübreleme ve sulama için eksiksiz bir DQN tabanlı çözüm sunulmuştur. Gerçek ürün verim istatistikleri ile hafif fizik tabanlı büyüme modelinin birleştirilmesi sayesinde ajan toksisiteyi ve kaynak tüketimini kontrol altında tutarken verimi önemli ölçüde artıran politikalar öğrenmiştir. Sezonluk gübre kullanımı gerçek veri medyanına yakın seyretmiş; öğrenilen politika tarımsal açıdan yorumlanabilir kalmıştır. Kapsamlı eğitim tanıları ve görsel politika gösterimi yaklaşımın pratik faydasını doğrulamaktadır. Ortam, eğitim kodu ve eğitilmiş modeller hassas tarımda derin pekiştirmeli öğrenme araştırmaları için tekrarlanabilir bir temel oluşturmaktadır.
+
+\begin{thebibliography}{00}
+\bibitem{mnih2015human}
+V.~Mnih vd., ``Human-level control through deep reinforcement learning,'' \textit{Nature}, c.~518, no.~7540, ss.~529--533, 2015.
+
+\bibitem{raes2009aquacrop}
+D.~Raes, P.~Steduto, T.~C.~Hsiao ve E.~Fereres, ``AquaCrop---The FAO crop model to simulate yield response to water: II. Main algorithms and software description,'' \textit{Agronomy Journal}, c.~101, no.~3, ss.~438--447, 2009.
+
+\bibitem{hsiao2009aquacrop}
+T.~C.~Hsiao vd., ``AquaCrop---The FAO crop model to simulate yield response to water: III. Parameterization and testing for maize,'' \textit{Agronomy Journal}, c.~101, no.~3, ss.~448--459, 2009.
+
+\bibitem{steduto2009aquacrop}
+P.~Steduto, T.~C.~Hsiao, D.~Raes ve E.~Fereres, ``AquaCrop---The FAO crop model to simulate yield response to water: I. Concepts and underlying principles,'' \textit{Agronomy Journal}, c.~101, no.~3, ss.~426--437, 2009.
+
+\bibitem{doorenbos1979}
+J.~Doorenbos ve A.~H.~Kassam, ``Yield response to water,'' FAO Irrigation and Drainage Paper No.~33, Food and Agriculture Organization of the United Nations, Roma, 1979.
+
+\bibitem{overweg2021cropgym}
+H.~Overweg, H.~N.~C.~Berghuijs ve I.~N.~Athanasiadis, ``CropGym: A reinforcement learning environment for crop management,'' arXiv:2104.04326, 2021.
+
+\bibitem{wang2025fertilization}
+Z.~Wang vd., ``Reinforcement learning-based agricultural fertilization and irrigation,'' \textit{Agriculture}, c.~15, no.~8, s.~252, 2025.
+
+\bibitem{salvagiotti2009nitrogen}
+F.~Salvagiotti vd., ``Nitrogen uptake, fixation and response to fertilizer N in soybeans: A review,'' \textit{Field Crops Research}, c.~108, no.~1, ss.~1--13, 2008.
+
+\bibitem{cameron2013nitrogen}
+K.~C.~Cameron, H.~J.~Di ve J.~L.~Moir, ``Nitrogen losses from the soil/plant system: A review,'' \textit{Annals of Applied Biology}, c.~162, no.~2, ss.~145--173, 2013.
+
+\bibitem{tilman2002agricultural}
+D.~Tilman vd., ``Agricultural sustainability and intensive production practices,'' \textit{Nature}, c.~418, ss.~671--677, 2002.
+
+\bibitem{zhang2002precision}
+N.~Zhang, M.~Wang ve N.~Wang, ``Precision agriculture---A worldwide overview,'' \textit{Computers and Electronics in Agriculture}, c.~36, no.~2--3, ss.~113--132, 2002.
+
+\bibitem{madondo2023swat}
+M.~Madondo vd., ``A SWAT-based reinforcement learning framework for crop management,'' AI for Social Good Workshop, 2023.
+
+\bibitem{ba2016layer}
+J.~L.~Ba, J.~R.~Kiros ve G.~E.~Hinton, ``Layer normalization,'' arXiv:1607.06450, 2016.
+
+\bibitem{gautron2022gym}
+R.~Gautron vd., ``gym-DSSAT: A crop model turned into a Reinforcement Learning environment,'' arXiv:2207.03270, 2022.
+
+\bibitem{buet2022deep}
+J.~Buet vd., ``Deep reinforcement learning for irrigation scheduling,'' \textit{Computers and Electronics in Agriculture}, 2022.
+
+\bibitem{jones2003dssat}
+J.~W.~Jones vd., ``The DSSAT cropping system model,'' \textit{European Journal of Agronomy}, c.~18, no.~3--4, ss.~235--265, 2003.
+
+\bibitem{kamilaris2018deep}
+A.~Kamilaris ve F.~X.~Prenafeta-Boldú, ``Deep learning in agriculture: A survey,'' \textit{Computers and Electronics in Agriculture}, c.~147, ss.~70--90, 2018.
+\end{thebibliography}
+
+\end{document}
