@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Main pipeline for DQN Auto-Fertilization project.
-Trains and evaluates on both simulated and real data.
+DQN Akıllı Gübreleme projesi için ana işlem hattı (pipeline).
+Hem simüle edilmiş hem de gerçek veriler üzerinde modeli eğitir ve değerlendirir.
 """
 
 import os
@@ -19,21 +19,21 @@ def main():
     os.makedirs("results", exist_ok=True)
     os.makedirs("data", exist_ok=True)
 
-    # 1. Train on simulated data
-    print("\n[1/3] Training DQN on Simulated Environment...")
+    # 1. Simüle edilmiş veri üzerinde eğitim
+    print("\n[1/3] Simüle Edilmiş Ortamda DQN Eğitimi Başlıyor...")
     train_dqn(use_real_data=False, episodes=2000, save_path="results/dqn_sim_model.pth")
 
-    # 2. Train on real data
+    # 2. Gerçek veri üzerinde eğitim
     real_data_path = "data/real_fertilization_data.csv"
     if os.path.exists(real_data_path):
-        print("\n[2/3] Training DQN on Real Dataset...")
+        print("\n[2/3] Gerçek Veri Setinde DQN Eğitimi Başlıyor...")
         train_dqn(use_real_data=True, data_path=real_data_path, episodes=2000,
                   save_path="results/dqn_real_model.pth")
     else:
-        print(f"\n[2/3] Real data not found at {real_data_path}. Skipping real-data training.")
+        print(f"\n[2/3] {real_data_path} yolunda gerçek veri bulunamadı. Bu adım atlanıyor.")
 
-    # 3. Evaluate both
-    print("\n[3/3] Evaluating models...")
+    # 3. Her iki modelin değerlendirilmesi
+    print("\n[3/3] Modeller Değerlendiriliyor...")
     if os.path.exists("results/dqn_sim_model.pth"):
         evaluate_dqn("results/dqn_sim_model.pth", use_real_data=False, episodes=100)
 
@@ -41,7 +41,7 @@ def main():
         evaluate_dqn("results/dqn_real_model.pth", use_real_data=True, episodes=100)
 
     print("\n" + "=" * 60)
-    print("Pipeline completed! Check results/ folder for models and plots.")
+    print("İşlem hattı tamamlandı! Modeller ve grafikler için results/ klasörünü kontrol edin.")
     print("=" * 60)
 
 if __name__ == "__main__":

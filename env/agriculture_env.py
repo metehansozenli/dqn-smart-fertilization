@@ -1,8 +1,8 @@
 """
-Hybrid Agriculture Environment for DQN
-- Real data calibrated parameters (Fertilizer kg/ha distributions)
-- Daily physical plant growth model
-- Numerical fertilizer amounts (discrete levels in kg/ha)
+DQN için Hibrit Tarım Ortamı
+- Gerçek veri ile kalibre edilmiş parametreler (Gübre kg/ha dağılımları)
+- Günlük fiziksel bitki büyüme modeli
+- Sayısal gübre miktarları (kg/ha cinsinden ayrık seviyeler)
 """
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ class AgricultureEnv:
         self.seed = seed
         np.random.seed(seed)
 
-        # Load calibration data
+        # Kalibrasyon verisini yükle
         if data_path is None:
             data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'indian_crop_yield_synthetic.csv')
         
@@ -30,9 +30,9 @@ class AgricultureEnv:
             self.yield_mean = 3800.0
             self.rain_mean = 1050.0
 
-        # Actions aligned to real Fertilizer_per_ha percentiles
-        # p10~43, p25~74, p50~137, p75~259 kg/ha (season totals)
-        # Daily doses sized so 2-4 applications reach realistic season totals
+        # Eylemler gerçek Gübre (kg/ha) yüzdelikleriyle hizalanmıştır
+        # p10~43, p25~74, p50~137, p75~259 kg/ha (sezon toplamları)
+        # Günlük dozlar, 2-4 uygulamada gerçekçi sezon toplamlarına ulaşacak şekilde boyutlandırıldı
         self.actions = {
             0: {'name': 'Wait',             'water': 0,  'fert_kg': 0,   'cost': 0.0},
             1: {'name': 'Light Irrig',      'water': 14, 'fert_kg': 0,   'cost': 0.6},
@@ -56,7 +56,7 @@ class AgricultureEnv:
         self.total_fert_used = 0.0
         self.total_water_used = 0.0
 
-        # Realistic initial state (calibrated ranges)
+        # Gerçekçi başlangıç durumu (kalibre edilmiş aralıklar)
         self.state = np.array([
             0.0,                                      # day norm
             np.random.uniform(38, 62),                # moisture %
@@ -82,9 +82,9 @@ class AgricultureEnv:
         act = self.actions[action]
         moisture, nutrient, pH, temp, humidity, light, health, toxicity = self.state[1:]
 
-        # Apply action effects
-        new_moisture = np.clip(moisture + act['water'] + np.random.normal(0, 2.5) - 3.5, 5, 100)  # daily loss
-        # Stronger nutrient response so fertilizing matters
+        # Eylem etkilerini uygula
+        new_moisture = np.clip(moisture + act['water'] + np.random.normal(0, 2.5) - 3.5, 5, 100)  # Günlük su kaybı
+        # Gübrelemenin önemli olması için daha güçlü besin tepkisi
         new_nutrient = np.clip(nutrient + act['fert_kg'] * 0.90 + np.random.normal(0, 1.2) - 3.8, 5, 180)
         new_toxicity = np.clip(toxicity + act['fert_kg'] * 0.012 + np.random.normal(0, 0.2), 0, 30)
         new_pH = np.clip(pH + np.random.normal(0, 0.03), 5.2, 8.3)
@@ -92,7 +92,7 @@ class AgricultureEnv:
         new_humidity = np.clip(humidity + np.random.normal(0, 3.5), 20, 98)
         new_light = np.clip(light + np.random.normal(0, 25), 200, 900)
 
-        # Stress calculation
+        # Stres hesaplaması
         water_stress = 0.0
         if new_moisture < 40:
             water_stress = (40 - new_moisture) / 35
@@ -101,31 +101,31 @@ class AgricultureEnv:
 
         nutrient_stress = 0.0
         if new_nutrient < 50:
-            nutrient_stress = (50 - new_nutrient) / 38   # stronger low-nutrient penalty
+            nutrient_stress = (50 - new_nutrient) / 38   # Düşük besin için daha güçlü ceza
         elif new_nutrient > 140:
             nutrient_stress = (new_nutrient - 140) / 55
 
-        tox_stress = min(new_toxicity / 28.0, 1.0)  # softer toxicity
+        tox_stress = min(new_toxicity / 28.0, 1.0)  # Daha yumuşak toksisite cezası
 
-        # Health update
+        # Sağlık güncellemesi
         health_delta = 2.5 - 4.0 * water_stress - 4.5 * nutrient_stress - 4.0 * tox_stress
         health_delta += np.random.normal(0, 1.0)
         new_health = np.clip(health + health_delta, 0, 100)
 
-        # Daily growth — nutrient stress weighs more so fertilizing pays off
+        # Günlük büyüme — besin stresi daha fazla ağırlığa sahiptir, böylece gübreleme işe yarar
         daily_potential = 0.036
         growth = daily_potential * (1 - 0.65 * water_stress) * (1 - 0.72 * nutrient_stress) * (1 - 0.70 * tox_stress)
         self.cumulative_growth += max(growth, 0.001)
         self.cumulative_growth = np.clip(self.cumulative_growth, 0.55, 3.8)
 
-        # Yield
+        # Verim (Yield) hesabı
         tox_penalty = min(new_toxicity / 25.0, 0.55)
         self.current_yield = self.base_yield * self.cumulative_growth * (1 - tox_penalty)
 
         self.total_fert_used += act['fert_kg']
         self.total_water_used += act['water']
 
-        # New state
+        # Yeni durum (State)
         new_state = np.array([
             (self.day + 1) / self.max_days,
             new_moisture, new_nutrient, new_pH, new_temp,
@@ -164,19 +164,19 @@ class AgricultureEnv:
         r = 0.0
         r += (health - 50) * 1.0
 
-        # Toxicity only hurts when clearly high
+        # Toksisite yalnızca açıkça yüksek olduğunda ceza verir
         if toxicity > 14:
             r -= (toxicity - 14) * 2.5
         elif toxicity > 9:
             r -= (toxicity - 9) * 0.9
 
-        # Moisture & nutrient bands
+        # Nem ve besin değerleri
         if 38 <= moisture <= 78:
             r += 6.0
         if 55 <= nutrient <= 130:
-            r += 16.0   # nutrient in good range is highly valuable
+            r += 16.0   # İyi bir aralıktaki besin değeri yüksek ödül getirir
         if nutrient < 48:
-            r -= (48 - nutrient) * 0.55  # push fertilize when low
+            r -= (48 - nutrient) * 0.55  # Düşükken gübrelemeye teşvik et
 
         r -= act['cost'] * 1.2
 
@@ -184,18 +184,18 @@ class AgricultureEnv:
             r -= 50.0
 
         if self.day >= self.max_days - 1:
-            # Yield bonus
+            # Verim bonusu
             y_norm = (self.current_yield - 2000) / 4500.0
             r += max(0.0, y_norm) * 200.0
-            # Season total fert aligned to real-data median (~137 kg/ha)
-            # Reward being in the realistic band [70, 260]
+            # Sezonluk toplam gübre, gerçek veri medyanıyla hizalandı (~137 kg/ha)
+            # Gerçekçi bantta [70, 260] olmayı ödüllendir
             tf = self.total_fert_used
             if 70 <= tf <= 260:
                 r += 45.0
             elif 40 <= tf < 70 or 260 < tf <= 350:
                 r += 15.0
             elif tf == 0:
-                r -= 20.0  # no fertilizer at all is bad vs real data
+                r -= 20.0  # Hiç gübre kullanılmaması gerçek veriye göre kötüdür
 
         return r
 

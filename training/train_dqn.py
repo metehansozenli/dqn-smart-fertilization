@@ -14,7 +14,7 @@ def train(episodes=800, max_days=30, seed=42, save_path="results/hybrid_dqn_mode
     action_dim = env.n_actions
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Device: {device} | Actions: {action_dim}")
+    print(f"Cihaz (Device): {device} | Eylemler (Actions): {action_dim}")
 
     agent = DQNAgent(state_dim, action_dim, device=device,
                      lr=1.5e-4, gamma=0.97, epsilon_decay=0.993,
@@ -22,7 +22,7 @@ def train(episodes=800, max_days=30, seed=42, save_path="results/hybrid_dqn_mode
 
     rewards_hist, yields_hist = [], []
 
-    print(f"Training Hybrid DQN for {episodes} episodes...")
+    print(f"Hibrit DQN {episodes} bölüm (episode) boyunca eğitiliyor...")
     for ep in tqdm(range(episodes)):
         state, _ = env.reset()
         ep_reward = 0.0
@@ -44,30 +44,30 @@ def train(episodes=800, max_days=30, seed=42, save_path="results/hybrid_dqn_mode
         yields_hist.append(final_yield)
 
         if (ep + 1) % 100 == 0:
-            print(f"Ep {ep+1} | AvgR(100): {np.mean(rewards_hist[-100:]):.1f} | "
-                  f"AvgYield: {np.mean(yields_hist[-100:]):.0f} | eps: {agent.epsilon:.3f}")
+            print(f"Bölüm {ep+1} | OrtÖdül(100): {np.mean(rewards_hist[-100:]):.1f} | "
+                  f"OrtVerim: {np.mean(yields_hist[-100:]):.0f} | eps: {agent.epsilon:.3f}")
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     agent.save(save_path)
-    print(f"Model saved → {save_path}")
+    print(f"Model kaydedildi → {save_path}")
 
-    # Training curves
+    # Eğitim eğrileri (grafikleri)
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     axes[0].plot(rewards_hist, alpha=0.4, color='#4C72B0')
     if len(rewards_hist) > 40:
         ma = np.convolve(rewards_hist, np.ones(40)/40, mode='valid')
         axes[0].plot(range(39, len(rewards_hist)), ma, color='#C44E52', lw=2)
-    axes[0].set_title('Episode Reward')
-    axes[0].set_xlabel('Episode')
+    axes[0].set_title('Bölüm Ödülü')
+    axes[0].set_xlabel('Bölüm (Episode)')
     axes[0].grid(True, alpha=0.3)
 
     axes[1].plot(yields_hist, alpha=0.4, color='#55A868')
     if len(yields_hist) > 40:
         ma = np.convolve(yields_hist, np.ones(40)/40, mode='valid')
         axes[1].plot(range(39, len(yields_hist)), ma, color='#DD8452', lw=2)
-    axes[1].axhline(3800, color='gray', ls='--', label='Baseline')
-    axes[1].set_title('Final Yield (kg/ha)')
-    axes[1].set_xlabel('Episode')
+    axes[1].axhline(3800, color='gray', ls='--', label='Taban (Baseline)')
+    axes[1].set_title('Final Verimi (kg/ha)')
+    axes[1].set_xlabel('Bölüm (Episode)')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
 
@@ -75,7 +75,7 @@ def train(episodes=800, max_days=30, seed=42, save_path="results/hybrid_dqn_mode
     curve_path = save_path.replace('.pth', '_curves.png')
     plt.savefig(curve_path, dpi=140, bbox_inches='tight')
     plt.close()
-    print(f"Curves saved → {curve_path}")
+    print(f"Eğriler kaydedildi → {curve_path}")
 
     return agent, rewards_hist, yields_hist
 

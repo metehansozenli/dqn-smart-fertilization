@@ -16,13 +16,13 @@ def evaluate_dqn(model_path, use_real_data=False, data_path="data/real_fertiliza
 
     agent = DQNAgent(state_dim, action_dim, device=device)
     agent.load(model_path)
-    agent.epsilon = 0.0  # Pure exploitation
+    agent.epsilon = 0.0  # Tamamen sömürü (Exploitation), keşif yok
 
     rewards = []
     yields = []
     action_counts = np.zeros(action_dim)
 
-    print(f"Evaluating DQN model from {model_path} on {'real' if use_real_data else 'sim'} data...")
+    print(f"DQN modeli {model_path} yolundan yüklenerek {'gerçek' if use_real_data else 'simüle edilmiş'} verilerle değerlendiriliyor...")
 
     for ep in range(episodes):
         state, _ = env.reset()
@@ -45,11 +45,11 @@ def evaluate_dqn(model_path, use_real_data=False, data_path="data/real_fertiliza
         if render and ep < 3:
             env.render()
 
-    print(f"\n=== Evaluation Results ({episodes} episodes) ===")
-    print(f"Average Reward: {np.mean(rewards):.2f} ± {np.std(rewards):.2f}")
-    print(f"Average Final Yield: {np.mean(yields):.1f} ± {np.std(yields):.1f} kg/ha")
-    print(f"Action Distribution: {action_counts / episodes:.1f} (per episode avg)")
-    print(f"Best Yield: {max(yields):.1f} | Worst: {min(yields):.1f}")
+    print(f"\n=== Değerlendirme Sonuçları ({episodes} bölüm) ===")
+    print(f"Ortalama Ödül: {np.mean(rewards):.2f} ± {np.std(rewards):.2f}")
+    print(f"Ortalama Final Verimi: {np.mean(yields):.1f} ± {np.std(yields):.1f} kg/ha")
+    print(f"Eylem Dağılımı: {action_counts / episodes:.1f} (bölüm başına ortalama)")
+    print(f"En İyi Verim: {max(yields):.1f} | En Kötü Verim: {min(yields):.1f}")
 
     return {
         'mean_reward': np.mean(rewards),
@@ -61,7 +61,7 @@ def evaluate_dqn(model_path, use_real_data=False, data_path="data/real_fertiliza
     }
 
 if __name__ == "__main__":
-    # Example evaluations
+    # Örnek değerlendirmeler
     if os.path.exists("results/dqn_sim_model.pth"):
         evaluate_dqn("results/dqn_sim_model.pth", use_real_data=False, episodes=50)
     if os.path.exists("results/dqn_real_model.pth"):

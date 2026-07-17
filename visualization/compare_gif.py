@@ -1,5 +1,5 @@
 """
-DQN vs Random GIF — Turkish labels, clear growth, health via color.
+DQN vs Rastgele GIF — Türkçe etiketler, net büyüme, renge dayalı sağlık durumu.
 """
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -32,7 +32,7 @@ class CompareGIF:
         if os.path.exists(mp):
             self.agent.load(mp)
             self.agent.epsilon = 0.0
-            print("Model yuklendi")
+            print("Model yüklendi")
 
         self.plants_top = self._grid(y0=HALF - 48)
         self.plants_bot = self._grid(y0=HEIGHT - 48)
@@ -47,7 +47,7 @@ class CompareGIF:
         return pts
 
     def plant_color(self, h):
-        # health only affects COLOR (green -> yellow -> brown)
+        # Sağlık sadece RENGİ etkiler (yeşil -> sarı -> kahverengi)
         if h < 0.15:
             return (90, 55, 30)
         if h < 0.35:
@@ -59,7 +59,7 @@ class CompareGIF:
         return (35, 175, 55)
 
     def draw_plant(self, x, y, size, h):
-        # size from growth (0..1); color from health
+        # Boyut büyümeye bağlıdır (0..1); renk ise sağlığa
         color = self.plant_color(h)
         stem_h = int(8 + size * 58)
         leaf_w = int(6 + size * 22)
@@ -148,12 +148,12 @@ class CompareGIF:
         moisture = float(state[1])
         nutrient = float(state[2])
 
-        # SIZE from growth only (clear growth over season)
-        # floor so seedlings are visible; scale so end is clearly taller
+        # BOYUT yalnızca büyümeye bağlıdır (sezon boyunca net büyüme)
+        # Fide görünür olsun diye taban değeri var; sonlara doğru daha uzun olur
         size = float(np.clip((growth - 1.0) / 0.55, 0.08, 1.0))
-        # random with dead health: slightly smaller but still growth-based, color shows damage
+        # Tamamen ölüyken rastgelelik: biraz küçülür ama yine de büyümeye bağlıdır, renk hasarı gösterir
         if health < 5:
-            size *= 0.45  # collapsed plants when fully dead
+            size *= 0.45  # tamamen öldüğünde bitkiler çöker
         h_n = float(np.clip(health / 100.0, 0, 1))
         for p in plants:
             self.draw_plant(p["x"], p["y"], size, h_n)
