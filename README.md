@@ -1,4 +1,4 @@
-# Akıllı Tarım Yönetimi için Derin Pekiştirmeli Öğrenme: DQN Tabanlı Karar Destek Sistemi
+# Tarımda Akıllı Gübreleme ve Sulama için Derin Q-Ağı Tabanlı Yaklaşım
 
 > **Yüksek Lisans — Derin Pekiştirmeli Öğrenme Dersi Proje Ödevi**  
 > Tabular Q-Learning yaklaşımının Deep Q-Network (DQN) ve gerçek veri kalibrasyonu ile genişletilmesi
@@ -7,7 +7,7 @@
 
 ## Özet
 
-Çalışmada, tarımsal üretimde sulama ve gübreleme kararlarını optimize etmek amacıyla **Deep Q-Network (DQN)** tabanlı bir pekiştirmeli öğrenme sistemi geliştirilmiştir. Geliştirilen ajan, 30 günlük bir yetiştirme sezonunda her gün toprak ve bitki durumunu gözlemleyerek sulama, gübreleme veya bekleme kararı almakta; sezon sonunda hasat verimini maksimize etmeyi, gübre kullanımını gerçek tarımsal veri dağılımına yakın tutmayı ve toprak toksisitesini kontrol altında tutmayı hedeflemektedir.
+Çalışmada, tarımsal üretimde sulama ve gübreleme kararlarını optimize etmek amacıyla **Deep Q-Network (DQN)** tabanlı bir pekiştirmeli öğrenme sistemi geliştirilmiştir. Geliştirilen ajan, 30 günlük bir yetiştirme sezonunda her gün toprak ve bitki durumunu gözlemleyerek sulama, gübreleme veya bekleme kararı almakta; sezon sonunda hasat verimini artırmayı, gübre kullanımını gerçek tarımsal veri dağılımına yakın tutmayı ve toprak toksisitesini sınırlamayı hedeflemektedir.
 
 Önceki tabular Q-Learning projesinden farklı olarak durum uzayı sürekli sensör değişkenlerinden oluşmakta, değer fonksiyonu bir sinir ağı ile yaklaşıklaştırılmakta ve ortam parametreleri gerçek bir ürün verim veri setinden kalibre edilmektedir. Eğitilmiş politika, aynı ortamda çalışan rastgele bir politikaya karşı hem sayısal metriklerle hem de yan yana tarla simülasyonu ile karşılaştırılmıştır.
 
@@ -54,7 +54,7 @@ Bu çalışmada sistem üç yönde genişletilmiştir:
 2. Ortam, **gerçek ürün verim ve gübre istatistikleri** ile kalibre edilmiştir; böylece taban verim ve gübre aralıkları tamamen sentetik varsayımlara dayanmamaktadır.
 3. Günlük bitki büyümesi, FAO AquaCrop ve klasik verim-tepki faktörü literatüründen esinlenen çarpanlı stres modeli ile tanımlanmıştır.
 
-Amaç; hasat verimini artıran, gübre kullanımını gerçekçi seviyede tutan ve toksisiteyi sınırlayan bir politikanın öğrenilebilir olduğunu göstermektir.
+Amaç; bu çerçevede DQN ile ölçülü bir sulama–gübreleme politikasının öğrenilip öğrenilemeyeceğini denemektir.
 
 ---
 
@@ -408,4 +408,3 @@ dqn-smart-fertilization/
 ```
 
 ---
-
