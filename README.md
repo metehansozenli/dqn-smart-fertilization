@@ -306,21 +306,33 @@ Eğitim eğrileri, ajanın rastgele keşif düzeyinden tutarlı bir politikaya g
 3. **Bekleme:** Durum uygunsa gereksiz müdahale yapılmaz.  
 4. **Toksisite farkındalığı:** Aşırı gübrelemenin uzun vadeli zararı öğrenilerek bastırılır.
 
-### 8.3 Kısıtlamalar
+### 8.3 Kısıtlamalar ve Dürüst Değerlendirme
+
+Bu çalışma kusursuz veya üretim ortamına hazır bir sistem iddiasında değildir. Başlıca sınırlılıklar şunlardır:
+
+**Veri seti uyumsuzluğu.** İdeal senaryoda her gün için nem, besin, uygulanan gübre dozu, sulama miktarı ve hasat verimini birlikte içeren uzun bir zaman serisi kullanılırdı. Eldeki veri seti ise çoğunlukla sezonluk/özet düzeyde verim ve gübre istatistikleri sunmaktadır; günlük karar–sonuç çiftleri doğrudan gözlenememektedir. Bu nedenle gerçek veri, ortamın dinamik denklemlerini satır satır öğrenmek için değil; taban verim ve gübre dağılımını kalibre etmek için kullanılmıştır. Günlük geçişler hâlâ stres tabanlı bir model ile üretilmektedir. Bu, “tamamen gerçek veriden öğrenildi” iddiasından farklı, hibrit bir yaklaşımdır.
+
+**Problemin DRL açısından göreli basitliği.** Kısa ufuk (30 gün), ayrık ve küçük aksiyon kümesi (8 seçenek) ile şekillendirilmiş ödül, modern derin pekiştirmeli öğrenme ölçütlerine göre orta-düşük karmaşıklıktadır. Öğrenilen politikanın sadeleşmesi (hafif sulama + ölçülü 40 kg gübre) bu yapının doğal bir sonucudur. Çalışmanın katkısı zor bir benchmark kırmak değil; tabular Q-Learning’den DQN’e geçiş, gerçek istatistiklerle kalibrasyon ve rastgele politikaya karşı sistematik karşılaştırmadır.
+
+**Model ve ortam sadeleştirmeleri.**
 
 | Kısıtlama | Açıklama |
 |-----------|----------|
 | Sabit 30 günlük ufuk | Gerçek ürün sezonları daha uzun ve fenolojik aşamalara bölünmüş olabilir |
 | Tek parsel varsayımı | Tarla içi mekânsal heterojenlik ve çoklu parsel koordinasyonu yoktur |
-| Basitleştirilmiş büyüme modeli | Tam AquaCrop veya DSSAT simülatörü yerine hafif stres modeli kullanılmıştır |
+| Basitleştirilmiş büyüme modeli | Tam AquaCrop veya DSSAT yerine hafif çarpanlı stres modeli kullanılmıştır |
 | Ayrık aksiyon seti | Sürekli gübre/su dozları için PPO veya SAC daha uygun olabilir |
 | Görsel katman | GIF’teki bitki çizimi metriklerin görselleştirmesidir; kararlar ve sayılar model/ortam çıktısıdır |
+
+Bu sınırlılıklar, elde edilen DQN–rastgele farkını geçersiz kılmaz; ancak sonuçların genellenirken temkinli yorumlanması gerektiğini gösterir.
 
 ---
 
 ## 9. Sonuç
 
-Bu çalışmada akıllı günlük gübreleme ve sulama için DQN tabanlı bir karar destek sistemi geliştirilmiştir. Gerçek ürün verim istatistikleri ile stres tabanlı büyüme modelinin birleştirilmesi sayesinde ajan, toksisiteyi ve kaynak tüketimini kontrol altında tutarken verimi rastgele politikaya göre belirgin biçimde artırmayı öğrenmiştir. Eğitim metrikleri öğrenmenin gerçekleştiğini; DQN–rastgele karşılaştırma simülasyonu ise öğrenilen politikanın sezon boyunca pratik fark yarattığını göstermektedir. Ortam, eğitim kodu ve eğitilmiş model, hassas tarımda derin pekiştirmeli öğrenme denemeleri için tekrarlanabilir bir temel sunmaktadır.
+Bu çalışmada akıllı günlük gübreleme ve sulama için DQN tabanlı bir karar destek sistemi geliştirilmiştir. Gerçek ürün verim istatistikleri ile stres tabanlı büyüme modelinin birleştirilmesi sayesinde ajan, toksisiteyi ve kaynak tüketimini kontrol altında tutarken verimi rastgele politikaya göre artırmayı öğrenmiştir. Eğitim metrikleri öğrenmenin gerçekleştiğini; DQN–rastgele karşılaştırma simülasyonu ise politikanın sezon boyunca fark yarattığını göstermektedir.
+
+Bununla birlikte çalışma, ideal günlük tarımsal zaman serisinin yokluğu ve problemin DRL açısından göreli basitliği nedeniyle sınırlı bir kapsamda değerlendirilmelidir. Katkı, mükemmel bir tarla otonomisi iddiası değil; tabular yaklaşımdan DQN’e geçişin, hibrit kalibrasyonun ve tekrarlanabilir bir deney düzeneğinin ortaya konmasıdır. Ortam, eğitim kodu ve eğitilmiş model bu çerçevede kullanılabilir bir temel sunmaktadır.
 
 ---
 
