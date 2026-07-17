@@ -409,6 +409,3 @@ dqn-smart-fertilization/
 
 ---
 
-## Lisans
-
-MIT
