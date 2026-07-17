@@ -1,111 +1,399 @@
-# Derin Pekiştirmeli Öğrenme ile Akıllı Gübreleme ve Sulama
+# Akıllı Tarım Yönetimi için Derin Pekiştirmeli Öğrenme: DQN Tabanlı Karar Destek Sistemi
 
-**DQN Tabanlı Hassas Tarım Sistemi**
-
-Bu proje, bitki yetiştirme sezonunda günlük sulama ve gübreleme kararlarını öğrenen bir **Deep Q-Network (DQN)** ajanı sunar. Ortam, gerçek ürün verim veri seti istatistikleri ile kalibre edilmiş hibrit bir simülasyondur.
+> **Yüksek Lisans — Derin Pekiştirmeli Öğrenme Dersi Proje Ödevi**  
+> Tabular Q-Learning yaklaşımının Deep Q-Network (DQN) ve gerçek veri kalibrasyonu ile genişletilmesi
 
 ---
 
-## Ana Sonuç (DQN vs Rastgele)
+## Özet
 
-Aynı ortamda eğitilmiş DQN politikası ile rastgele politikanın karşılaştırması:
+Çalışmada, tarımsal üretimde sulama ve gübreleme kararlarını optimize etmek amacıyla **Deep Q-Network (DQN)** tabanlı bir pekiştirmeli öğrenme sistemi geliştirilmiştir. Geliştirilen ajan, 30 günlük bir yetiştirme sezonunda her gün toprak ve bitki durumunu gözlemleyerek sulama, gübreleme veya bekleme kararı almakta; sezon sonunda hasat verimini maksimize etmeyi, gübre kullanımını gerçek tarımsal veri dağılımına yakın tutmayı ve toprak toksisitesini kontrol altında tutmayı hedeflemektedir.
+
+Önceki tabular Q-Learning projesinden farklı olarak durum uzayı sürekli sensör değişkenlerinden oluşmakta, değer fonksiyonu bir sinir ağı ile yaklaşıklaştırılmakta ve ortam parametreleri gerçek bir ürün verim veri setinden kalibre edilmektedir. Eğitilmiş politika, aynı ortamda çalışan rastgele bir politikaya karşı hem sayısal metriklerle hem de yan yana tarla simülasyonu ile karşılaştırılmıştır.
+
+### DQN vs Rastgele Politika (Özet Görsel)
+
+Aynı ortamda eğitilmiş DQN ajanı (üst) ile rastgele politika (alt) yan yana çalıştırılmıştır. DQN ölçülü sulama ve gübreleme ile verimi korurken; rastgele politika aşırı gübreleyerek toksisite biriktirir ve verimi düşürür.
 
 ![DQN vs Rastgele](results/compare_dqn_vs_random.gif)
 
-| Metrik | DQN (eğitilmiş) | Rastgele |
-|--------|-----------------|----------|
-| Verim | **~3500+ kg/ha** | ~1800 kg/ha |
-| Sezon gübre kullanımı | **~120 kg/ha** | ~2000+ kg/ha |
-| Toksisite | Düşük / kontrollü | Yüksek (bitki ölümü) |
-
-- **Üst panel:** DQN ajanı — duruma bakarak sulama / ölçülü gübre seçer  
-- **Alt panel:** Rastgele politika — aşırı gübre → toksisite → verim çöküşü  
-- Tüm sayılar `env.step()` ve eğitilmiş model çıktısından gelir  
+| Metrik | DQN | Rastgele |
+|--------|-----|----------|
+| Verim | ~3500+ kg/ha | ~1800 kg/ha |
+| Sezon gübre | ~120 kg/ha | ~2000+ kg/ha |
+| Toksisite | Kontrollü | Yüksek |
+| Sağlık | Korunur | Sıfıra iner |
 
 ---
 
-## Eğitim Grafikleri
+## İçindekiler
 
-![Eğitim Tanıları](results/full_dqn_paper_figures.png)
-
-Ödül, verim, TD loss, keşif oranı (ε), aksiyon dağılımı ve verim histogramı.
-
----
-
-## Proje Ne Yapıyor?
-
-1. **Durum:** nem, besin, pH, sıcaklık, sağlık, toksisite vb. (9 boyut)  
-2. **Aksiyon:** 8 ayrık seçenek (bekle, sulama, gübre 40/70/140 kg, kombinasyonlar)  
-3. **Öğrenme:** DQN (experience replay + target network)  
-4. **Hedef:** yüksek verim + gerçekçi gübre kullanımı + düşük toksisite  
-
-Gübre dozları gerçek veri yüzdeliklerine (medyan ~137 kg/ha) hizalanmıştır.
+1. [Giriş](#1-giriş)
+2. [Problemin Tanımı](#2-problemin-tanımı)
+3. [Yöntem](#3-yöntem)
+4. [Sistem Mimarisi](#4-sistem-mimarisi)
+5. [Deney Düzeneği](#5-deney-düzeneği)
+6. [Deneysel Sonuçlar](#6-deneysel-sonuçlar)
+7. [Karşılaştırmalı Analiz](#7-karşılaştırmalı-analiz)
+8. [Tartışma](#8-tartışma)
+9. [Sonuç](#9-sonuç)
+10. [Kurulum ve Çalıştırma](#10-kurulum-ve-çalıştırma)
+11. [Proje Yapısı](#11-proje-yapısı)
 
 ---
 
-## Hızlı Başlangıç
+## 1. Giriş
+
+Tarımsal üretimde su ve kimyasal gübre yönetimi, hem çiftçi gelirini hem de çevresel sürdürülebilirliği doğrudan etkileyen kritik operasyonel kararlardır. Aşırı gübreleme üretim maliyetini yükseltir, toprak yapısını bozar ve yüzey ile yeraltı sularının kirlenmesine yol açar. Yetersiz sulama veya gübreleme ise bitki gelişimini engelleyerek verim kaybına neden olur. Bu kararlar doğası gereği sıralıdır: bugün verilen bir gübre dozu ertesi günlerin besin durumunu, toksisite birikimini ve nihai hasadı etkiler.
+
+Geleneksel uygulamalarda bu kararlar çoğunlukla çiftçinin deneyimine ve sezgisine bırakılır. Pekiştirmeli öğrenme (Reinforcement Learning), sıralı karar verme problemleri için biçimsel bir çerçeve sunduğundan, tarımsal yönetim bu yöntemler için doğal bir uygulama alanıdır. Önceki ders projesinde tabular **Q-Learning** ile ayrık durum uzayında (yaklaşık 11.250 durum) sulama ve gübreleme politikası öğrenilmiştir. Ancak gerçek tarla sensörleri sürekli değer ürettiği için tabular yaklaşım boyutlanabilirlik sorunu yaşamaktadır.
+
+Bu çalışmada sistem üç yönde genişletilmiştir:
+
+1. Tabular Q-Learning yerine **Deep Q-Network (DQN)** kullanılarak sürekli durum uzayına geçilmiştir.
+2. Ortam, **gerçek ürün verim ve gübre istatistikleri** ile kalibre edilmiştir; böylece taban verim ve gübre aralıkları tamamen sentetik varsayımlara dayanmamaktadır.
+3. Günlük bitki büyümesi, FAO AquaCrop ve klasik verim-tepki faktörü literatüründen esinlenen çarpanlı stres modeli ile tanımlanmıştır.
+
+Amaç; hasat verimini artıran, gübre kullanımını gerçekçi seviyede tutan ve toksisiteyi sınırlayan bir politikanın öğrenilebilir olduğunu göstermektir.
+
+---
+
+## 2. Problemin Tanımı
+
+### 2.1 Markov Karar Süreci (MDP) Formülasyonu
+
+Otuz günlük ürün döngüsü sonlu ufuklu bir **Markov Karar Süreci** olarak modellenmiştir. Her gün ajan mevcut durumu gözlemler, bir aksiyon seçer, ortam yeni duruma geçer ve skaler bir ödül üretir. Amaç, iskonto edilmiş toplam ödülü maksimize eden politikayı öğrenmektir.
+
+| Bileşen | Tanım |
+|---------|-------|
+| **Durum Uzayı (S)** | 9 boyutlu sürekli durum vektörü |
+| **Aksiyon Uzayı (A)** | 8 ayrık yönetim kararı |
+| **Geçiş Fonksiyonu (T)** | Stokastik süreç + stres tabanlı büyüme |
+| **Ödül Fonksiyonu (R)** | Çok bileşenli şekillendirilmiş ödül |
+| **İndirim Faktörü (γ)** | 0.97 |
+
+### 2.2 Durum Uzayı
+
+Durum, tipik IoT toprak ve hava sensörlerinden elde edilebilecek sürekli ölçümlerle tanımlanmıştır. Bu sayede ajanın girdi temsili, ayrıklaştırılmış tabular durumlara kıyasla gerçekçi sensör akışına daha yakındır.
+
+| Boyut | Açıklama |
+|-------|----------|
+| `day` | Normalize gün indeksi \(t/30\) |
+| `moisture` | Toprak nemi (%) |
+| `nutrient` | Göreli besin seviyesi |
+| `pH` | Toprak asitliği |
+| `temperature` | Sıcaklık (°C) |
+| `humidity` | Bağıl nem (%) |
+| `light` | Işık şiddeti |
+| `health` | Bitki sağlığı (0–100) |
+| `toxicity` | Toksisite indeksi |
+
+### 2.3 Aksiyon Uzayı
+
+Aksiyonlar, gerçek tarımsal uygulamalarda görülen sulama hacimleri ve gübre dozlarını temsil edecek şekilde seçilmiştir. Özellikle gübre miktarları, kalibrasyon veri setindeki `Fertilizer_per_ha` dağılımının medyan ve çeyrekliklerine hizalanmıştır (medyan ≈ 137 kg/ha). Böylece ajanın seçebileceği dozlar, veri dışı aşırı değerlere kaymamaktadır.
+
+| ID | Aksiyon | Su (mm) | Gübre (kg/ha) |
+|----|---------|---------|----------------|
+| 0 | Bekle | 0 | 0 |
+| 1 | Hafif Sulama | 14 | 0 |
+| 2 | Yoğun Sulama | 28 | 0 |
+| 3 | Gübre 40 kg | 0 | 40 |
+| 4 | Gübre 70 kg | 0 | 70 |
+| 5 | Gübre 140 kg | 0 | 140 |
+| 6 | Sulama + Gübre 50 kg | 16 | 50 |
+| 7 | Sulama + Gübre 90 kg | 18 | 90 |
+
+### 2.4 Geçiş Dinamikleri ve Büyüme Modeli
+
+Aksiyon uygulandıktan sonra nem, besin ve toksisite güncellenir. Ardından su, besin ve toksisite stresleri hesaplanır. Günlük göreli büyüme, literatürdeki çarpanlı stres formuna uygundur:
+
+\[
+g_t = g_0 \cdot (1-k_w\sigma_w)\cdot(1-k_n\sigma_n)\cdot(1-k_\tau\sigma_\tau)
+\]
+
+Kümülatif büyüme ve toksisite cezası birlikte nihai verimi belirler. Taban verim \(Y_{\mathrm{base}}\) her bölümün başında gerçek veri dağılımından örneklenir; böylece model çıktıları ampirik verim aralığı ile tutarlı kalır.
+
+### 2.5 Ödül Fonksiyonu
+
+Ödül, yalnızca dönem sonu verime bakmak yerine ara adımlarda da yol gösterici sinyal üretecek şekilde şekillendirilmiştir. Aşırı gübrelemeyi bastırmak için toksisite cezası, gerçekçi toplam gübre kullanımını teşvik etmek için sezonluk gübre bandı bonusu eklenmiştir.
+
+| Bileşen | Açıklama |
+|---------|----------|
+| Sağlık terimi | Bitki sağlığındaki iyileşme ödüllendirilir |
+| Nem / besin bandı | Değişkenler ideal aralıkta iken bonus verilir |
+| Besin eksikliği | Besin çok düşükse ceza uygulanır (gübrelemeye teşvik) |
+| Toksisite | Yüksek toksisite güçlü biçimde cezalandırılır |
+| Aksiyon maliyeti | Gereksiz kaynak kullanımı hafif cezalandırılır |
+| Dönem sonu verim | Yüksek hasat ödüllendirilir |
+| Sezon gübre bandı | Toplam gübrenin gerçekçi aralıkta olması ekstra ödül getirir |
+
+---
+
+## 3. Yöntem
+
+### 3.1 Deep Q-Network (DQN)
+
+DQN, model-free bir değer tabanlı derin pekiştirmeli öğrenme algoritmasıdır. Eylem-değer fonksiyonu \(Q(s,a;\theta)\) çok katmanlı bir sinir ağı ile yaklaşıklaştırılır. Eğitim sırasında ağ, deneyim tekrarı tamponundan örneklenen geçişler üzerinde şu hedefe yaklaştırılır:
+
+```
+y = r + γ max_a' Q(s', a'; θ⁻)
+```
+
+Burada \(θ⁻\) periyodik olarak kopyalanan **hedef ağ** parametreleridir. Hedef ağ ve experience replay, eğitimi stabilize eden iki temel bileşendir. Kayıp fonksiyonu olarak aykırı değerlere karşı daha dayanıklı olan Smooth L1 (Huber) kullanılmıştır.
+
+### 3.2 Ağ Mimarisi
+
+Ağ, sürekli 9 boyutlu durumu alıp her ayrık aksiyon için bir Q-değeri üretir. Gizli katmanlarda Layer Normalization, eğitim kararlılığını artırmak için eklenmiştir.
+
+| Katman | Özellik |
+|--------|---------|
+| Giriş | 9 boyutlu durum |
+| Gizli 1 | 256 birim, ReLU, LayerNorm |
+| Gizli 2 | 128 birim, ReLU, LayerNorm |
+| Gizli 3 | 64 birim, ReLU, LayerNorm |
+| Çıkış | 8 Q-değeri (aksiyon başına bir) |
+
+### 3.3 Keşif Stratejisi
+
+Eğitim boyunca **ε-greedy** politika kullanılmıştır. Erken dönemde yüksek keşif, geç dönemde düşük keşif ile öğrenilen bilginin sömürülmesi hedeflenmiştir.
+
+| Parametre | Değer |
+|-----------|-------|
+| ε başlangıç | 1.0 (tam keşif) |
+| ε bitiş | 0.05 (minimum keşif) |
+| Azalma biçimi | Üstel, episode bazlı |
+
+### 3.4 Gerçek Veri Kalibrasyonu
+
+Ortamın tamamen sentetik kalmaması için gerçek bir ürün verim veri setinin istatistikleri kullanılmıştır. Verideki gübre medyanı yaklaşık 137 kg/ha, verim medyanı ise yaklaşık 3850 kg/ha düzeyindedir. Her eğitim bölümünün başında taban verim bu dağılımdan örneklenir; aksiyon setindeki gübre dozları ve ödüldeki sezonluk gübre bandı aynı dağılıma göre belirlenir. Günlük geçişler stokastik stres modeli ile üretilmeye devam eder, ancak ortaya çıkan verim ve gübre ölçeği ampirik veriyle uyumlu kalır.
+
+---
+
+## 4. Sistem Mimarisi
+
+Sistem, ortam, ajan, eğitim ve görsel karşılaştırma modüllerinden oluşur. Eğitim betiği modeli eğitir, metrikleri kaydeder ve makalede kullanılan figürleri üretir. Karşılaştırma betiği ise aynı ortamda DQN ile rastgele politikayı yan yana koşturarak öğrenmenin etkisini gösterir.
+
+```
+┌──────────────────────────────────────────────┐
+│     training/train_full_metrics.py           │
+│     (Eğitim + metrik figürleri)              │
+└──────────────────────┬───────────────────────┘
+                       │
+       ┌───────────────┼───────────────┐
+       ▼               ▼               ▼
+┌─────────────┐ ┌─────────────┐ ┌────────────────┐
+│   agent/    │ │    env/     │ │ visualization/ │
+│ dqn_agent.py│ │ agriculture │ │ compare_gif.py │
+│             │ │   _env.py   │ │                │
+└─────────────┘ └──────┬──────┘ └────────────────┘
+                       ▼
+                ┌─────────────┐
+                │    data/    │
+                └─────────────┘
+```
+
+### 4.1 Modül Açıklamaları
+
+| Modül | Dosya | Açıklama |
+|-------|-------|----------|
+| **Ortam** | `env/agriculture_env.py` | Sürekli durumlu hibrit tarım simülasyonu; gerçek veri kalibrasyonu ve stres tabanlı büyüme |
+| **Ajan** | `agent/dqn_agent.py` | PyTorch DQN: experience replay, hedef ağ, ε-greedy seçim, kayıt/yükleme |
+| **Eğitim** | `training/train_full_metrics.py` | Eğitim döngüsü; ödül, verim, loss, ε ve aksiyon istatistiklerini toplar; 6 panelli figür üretir |
+| **Karşılaştırma** | `visualization/compare_gif.py` | Aynı ortamda DQN ve rastgele politikayı koşturup yan yana GIF üretir |
+| **Değerlendirme** | `evaluation/evaluate_dqn.py` | Greedy politika ile ek sayısal değerlendirme |
+| **Veri** | `data/` | Kalibrasyon için ürün verim / gübre istatistikleri |
+| **Makale** | `paper/main.tex` | IEEE tarzı akademik makale kaynağı |
+
+---
+
+## 5. Deney Düzeneği
+
+### 5.1 Ana Eğitim Parametreleri
+
+Eğitim, tekrarlanabilirlik için sabit tohumlarla yürütülmüştür. Bir bölüm 30 günlük sezonu temsil eder; toplam 650 bölüm boyunca ajan ortamla etkileşir.
+
+| Parametre | Değer |
+|-----------|-------|
+| Episode sayısı | 650 |
+| Gün / episode | 30 |
+| Replay buffer kapasitesi | 60.000 geçiş |
+| Mini-batch boyutu | 128 |
+| Hedef ağ güncelleme | Her 300 gradyan adımında |
+| Optimizasyon | Adam, öğrenme oranı \(1\times10^{-4}\) |
+| İndirim faktörü γ | 0.97 |
+| ε aralığı | 1.0 → 0.05 |
+| Değerlendirme | Greedy (ε = 0) |
+
+### 5.2 Karşılaştırma Düzeneği
+
+Öğrenmenin katkısını izole etmek için aynı ortam dinamiği ve aynı taban verim kullanılarak iki politika karşılaştırılmıştır. Tek fark karar mekanizmasıdır: biri eğitilmiş DQN, diğeri her adımda rastgele aksiyon seçen politikadır.
+
+| Politika | Açıklama |
+|----------|----------|
+| **DQN** | Eğitilmiş ağ; her durumda en yüksek Q-değerli aksiyon (greedy) |
+| **Rastgele** | Aksiyon kümesinden düzgün dağılımlı rastgele seçim |
+
+---
+
+## 6. Deneysel Sonuçlar
+
+### 6.1 Eğitim Eğrileri
+
+Aşağıdaki figür, eğitimin ana tanılarını bir arada göstermektedir.
+
+![Eğitim Eğrileri](results/full_dqn_paper_figures.png)
+
+Figür altı panelden oluşur:
+
+1. **Episode ödülü** ve hareketli ortalama — öğrenmenin ödül sinyalinde yükseldiğini gösterir.  
+2. **Nihai verim** — sezon sonu verim yörüngesi; kesikli çizgi gerçek veri medyanıdır.  
+3. **TD Loss** — zamansal fark kaybının zamanla azaldığını, yani Q-yaklaşımının iyileştiğini gösterir.  
+4. **Keşif oranı (ε)** — keşiften sömürüye geçişin sorunsuz tamamlandığını gösterir.  
+5. **Aksiyon dağılımı** — eğitimin son döneminde hangi kararların baskın olduğunu özetler.  
+6. **Verim histogramı** — geç dönem verim dağılımını verir.
+
+**Başlıca gözlemler:** Kümülatif ödül erken dönemden sonra kararlı pozitif bölgeye yükselmektedir. Verim, kalibrasyon verisinin medyanı civarında veya üzerinde seyretmektedir. Geç dönemde ajan ağırlıklı olarak hafif sulama ve 40 kg gübre aksiyonlarını tercih etmekte; yüksek tek seferlik dozları neredeyse hiç seçmemektedir. Bu davranış, toksisite cezası ile gerçekçi gübre bandı ödülünün birlikte şekillendirdiği muhafazakâr bir politikaya işaret eder.
+
+### 6.2 Greedy Değerlendirme Özeti
+
+Eğitim sonrası ε = 0 ile yapılan değerlendirmede, DQN politikası rastgele tabana göre belirgin üstünlük göstermektedir.
+
+| Politika | Ort. Verim (kg/ha) | Sezon gübre (kg/ha) |
+|----------|--------------------|---------------------|
+| Rastgele | ~1800 | ~2000+ |
+| **DQN** | **~3500+** | **~120** |
+
+DQN daha yüksek verim üretirken gübre kullanımını gerçek veri medyanına yakın, kontrollü bir seviyede tutmaktadır. Rastgele politika ise aşırı gübreleyerek toksisite biriktirmekte ve verimi düşürmektedir.
+
+---
+
+## 7. Karşılaştırmalı Analiz
+
+### 7.1 DQN vs Rastgele Politika
+
+Başta verilen karşılaştırma GIF’inin ayrıntılı okuması şöyledir. Üst panel eğitilmiş DQN ajanını, alt panel rastgele politikayı gösterir. Her iki taraf da aynı ortam dinamiği ve aynı taban verim ile koşturulmuştur; tek fark karar politikasıdır.
+
+Her karede verim, sağlık, toksisite, büyüme, sezonluk gübre toplamı, nem ve besin değerleri ham olarak yazılır. Bitki boyu büyümeyi, renk sağlığı yansıtır. Rastgele tarafta aşırı gübre uygulamaları toksisiteyi yükseltir; bitkiler bozulur ve verim düşer. DQN tarafında nem korunur, gübre ölçülü uygulanır ve verim daha yüksek kalır.
+
+Bu karşılaştırma, yalnızca ortalama bir istatistik farkı olmadığını; sezon boyunca adım adım biriken karar kalitesinin sonucu olduğunu gösterir. Özet tablo ve animasyon dosyanın başında sunulmuştur.
+
+### 7.2 Tabular Q-Learning ile İlişki
+
+Bu proje, önceki tabular Q-Learning çalışmasının devamı niteliğindedir. Temel farklar aşağıdaki gibidir:
+
+| Özellik | Q-Learning (önceki proje) | DQN (bu proje) |
+|---------|---------------------------|----------------|
+| Durum temsili | Ayrık (~11.250 hücre) | Sürekli, 9 boyut |
+| Değer fonksiyonu | Q-tablosu | Sinir ağı |
+| Veri kullanımı | Sentetik / ayrık varsayımlar | Gerçek veri kalibrasyonu |
+| Ölçeklenebilirlik | Küçük ayrık uzayla sınırlı | Yüksek boyutlu duruma uygun |
+| Karşılaştırma | Rastgele / hiperparametre | Rastgele politika + görsel simülasyon |
+
+Tabular yöntem küçük ayrık problemlerde etkili olsa da sürekli sensör girişleri için DQN daha uygun bir çözümdür. Bu çalışmada ayrıca ortamın gerçek veri ile kalibre edilmesi, sonuçların yalnızca tamamen uydurma bir simülasyona bağlı kalmamasını sağlamıştır.
+
+---
+
+## 8. Tartışma
+
+### 8.1 Bulguların Değerlendirilmesi
+
+Eğitim eğrileri, ajanın rastgele keşif düzeyinden tutarlı bir politikaya geçtiğini göstermektedir. TD loss’un azalması değer fonksiyonunun iyileştiğine, verim eğrisinin yükselmesi ise bu iyileşmenin görev performansına yansıdığına işaret eder. Öğrenilen politikanın sade görünmesi (ağırlıklı olarak hafif sulama ve 40 kg gübre) bir başarısızlık değil; toksisite ve kaynak maliyetleri altında gereksiz aksiyonların elenmesidir. Sezonluk gübre toplamının gerçek veri medyanına yakın kalması, ödül tasarımının ve aksiyon setinin veri ile uyumlu kurulduğunu destekler.
+
+### 8.2 Ajanın Öğrendiği Stratejiler
+
+1. **Nem yönetimi:** Nem düşük olduğunda veya korunması gerektiğinde hafif sulama tercih edilir.  
+2. **Gübreleme zamanlaması:** Besin seviyesi düştüğünde 40 kg’lık dozlar uygulanır; yüksek tek seferlik dozlardan kaçınılır.  
+3. **Bekleme:** Durum uygunsa gereksiz müdahale yapılmaz.  
+4. **Toksisite farkındalığı:** Aşırı gübrelemenin uzun vadeli zararı öğrenilerek bastırılır.
+
+### 8.3 Kısıtlamalar
+
+| Kısıtlama | Açıklama |
+|-----------|----------|
+| Sabit 30 günlük ufuk | Gerçek ürün sezonları daha uzun ve fenolojik aşamalara bölünmüş olabilir |
+| Tek parsel varsayımı | Tarla içi mekânsal heterojenlik ve çoklu parsel koordinasyonu yoktur |
+| Basitleştirilmiş büyüme modeli | Tam AquaCrop veya DSSAT simülatörü yerine hafif stres modeli kullanılmıştır |
+| Ayrık aksiyon seti | Sürekli gübre/su dozları için PPO veya SAC daha uygun olabilir |
+| Görsel katman | GIF’teki bitki çizimi metriklerin görselleştirmesidir; kararlar ve sayılar model/ortam çıktısıdır |
+
+---
+
+## 9. Sonuç
+
+Bu çalışmada akıllı günlük gübreleme ve sulama için DQN tabanlı bir karar destek sistemi geliştirilmiştir. Gerçek ürün verim istatistikleri ile stres tabanlı büyüme modelinin birleştirilmesi sayesinde ajan, toksisiteyi ve kaynak tüketimini kontrol altında tutarken verimi rastgele politikaya göre belirgin biçimde artırmayı öğrenmiştir. Eğitim metrikleri öğrenmenin gerçekleştiğini; DQN–rastgele karşılaştırma simülasyonu ise öğrenilen politikanın sezon boyunca pratik fark yarattığını göstermektedir. Ortam, eğitim kodu ve eğitilmiş model, hassas tarımda derin pekiştirmeli öğrenme denemeleri için tekrarlanabilir bir temel sunmaktadır.
+
+---
+
+## 10. Kurulum ve Çalıştırma
+
+### 10.1 Gereksinimler
+
+```
+Python >= 3.9
+torch >= 2.0
+numpy, pandas, matplotlib, seaborn
+Pillow, pygame, tqdm, scikit-learn
+```
+
+### 10.2 Kurulum
 
 ```bash
-# 1) Bağımlılıklar
 pip install -r requirements.txt
+```
 
-# 2) Eğit + grafikleri üret
+### 10.3 Çalıştırma
+
+**Model eğitimi ve eğitim figürlerinin üretilmesi:**
+
+```bash
 python training/train_full_metrics.py
+```
 
-# 3) DQN vs Rastgele GIF
+**DQN ile rastgele politikanın yan yana simülasyonu:**
+
+```bash
 python visualization/compare_gif.py
 ```
 
-Eğitilmiş model: `results/hybrid_dqn_model.pth`
+### 10.4 Çıktılar
+
+| Dosya | Açıklama |
+|-------|----------|
+| `results/hybrid_dqn_model.pth` | Eğitilmiş DQN ağırlıkları |
+| `results/full_dqn_paper_figures.png` | Ödül, verim, loss, ε, aksiyon ve histogram |
+| `results/compare_dqn_vs_random.gif` | DQN vs rastgele tarla simülasyonu |
+| `results/ieee_paper.pdf` | Akademik makale PDF |
+| `paper/main.tex` | Overleaf uyumlu LaTeX kaynak |
 
 ---
 
-## Dizin Yapısı
+## 11. Proje Yapısı
 
 ```
-.
-├── agent/dqn_agent.py           # DQN ajanı (PyTorch)
-├── env/agriculture_env.py       # Hibrit tarım ortamı
-├── training/train_full_metrics.py
-├── visualization/compare_gif.py # Ana karşılaştırma GIF
-├── data/                        # Kalibrasyon veri seti
-├── results/
-│   ├── compare_dqn_vs_random.gif   ← ana görsel
-│   ├── full_dqn_paper_figures.png
-│   ├── hybrid_dqn_model.pth
-│   └── ieee_paper.pdf
-├── paper/ieee_paper.tex|.pdf    # IEEE tarzı makale (TR, 6 sayfa)
+dqn-smart-fertilization/
+├── README.md
 ├── requirements.txt
-└── README.md
+├── agent/
+│   └── dqn_agent.py                 # DQN ajanı (PyTorch)
+├── env/
+│   └── agriculture_env.py           # Hibrit tarım ortamı
+├── training/
+│   └── train_full_metrics.py        # Eğitim + figür üretimi
+├── visualization/
+│   └── compare_gif.py               # DQN vs rastgele GIF
+├── evaluation/
+│   └── evaluate_dqn.py
+├── data/
+│   └── indian_crop_yield_synthetic.csv
+├── results/
+│   ├── hybrid_dqn_model.pth
+│   ├── full_dqn_paper_figures.png
+│   ├── compare_dqn_vs_random.gif
+│   └── ieee_paper.pdf
+└── paper/
+    ├── main.tex
+    └── full_dqn_paper_figures.png
 ```
-
----
-
-## Akademik Makale
-
-- **Dosya:** `paper/ieee_paper.pdf` / `results/ieee_paper.pdf`  
-- **Dil:** Türkçe  
-- **İçerik:** literatür, MDP formülasyonu, DQN mimarisi, gerçek veri entegrasyonu, deneysel sonuçlar  
-- **Referanslar:** DQN (Mnih), AquaCrop, FAO Ky, CropGym vb.
-
----
-
-## Öğrenilen Politika (Özet)
-
-Ajan şunu öğrenmiştir:
-
-1. Nemı korumak için düzenli **hafif sulama**  
-2. Sezon içinde birkaç kez **40 kg gübre** (toplam gerçek veri medyanına yakın)  
-3. Yüksek tek seferlik dozlardan kaçınma (toksisite)  
-
-Rastgele politika ise aşırı gübreleyip toksisite ile verimi düşürür. Karşılaştırma GIF’i bu farkı gösterir.
-
----
-
-## Notlar
-
-- GIF ve grafikteki metrikler model/ortam çıktısıdır; bitki çizimi görselleştirmedir (boy ≈ büyüme, renk ≈ sağlık).  
-- Seasonal denemeler proje kapsamı dışında bırakılmıştır; sunulan sistem günlük hibrit modeldir.
 
 ---
 
